@@ -7,8 +7,8 @@ A local-first tool for recording departmental IT equipment and preparing a surpl
 ## Quick use
 
 1. Open the app while online. Select a batch or create one, then use **Batch details** to set its department and location.
-2. Scan or enter the equipment serial number. Record the UCSB asset number separately and set its tag status to **Tag found**, **No tag found**, or **Not checked**. Review every scan; prefixes and leading zeroes can be part of an identifier.
-3. Enter the equipment type and a model or useful description. Quantity above one is for items with no serial number and no UCSB asset number. Check storage status and add handling notes when needed.
+2. Choose **Scan with camera** and include the printed label, or choose **Label photo → Read full label**. Review the serial, manufacturer, model and suggested equipment type; choose **Use label details**. Codes and text are read together. MO (order) and MTM (product) remain separate from the serial. Unclassified barcodes are never selected automatically. You can also enter the serial number. Record the UCSB asset number separately and set its tag status to **Tag found**, **No tag found**, or **Not checked**. Review every scan; prefixes and leading zeroes can be part of an identifier.
+3. Check the equipment type, manufacturer and model; supply a useful description when the label does not provide one. Quantity above one is for items with no serial number and no UCSB asset number. Check storage status and add handling notes when needed.
 4. Save the entry. Saved records stay on this device in the current browser. Use the review flags to find incomplete entries; they do not determine disposal approval.
 5. Export the batch as CSV for review. Download a JSON backup of all batches for archival or transfer to another device.
 
@@ -18,7 +18,7 @@ For the campus handoff, follow [UCSB disposal and recycling guidance](docs/UCSB-
 
 Open the deployed app online and wait for **Offline ready** before relying on it without a connection. Use **Check offline files** if needed. Equipment records are stored in this browser's IndexedDB; an unfinished entry is kept in session storage. Browser storage can be cleared or evicted, and separate browsers/devices have separate records. Download backups regularly and keep them in an approved department location.
 
-Camera scanning, photo reading, and OCR run locally. Inventory and images are not uploaded by the app. The public site still requires ordinary web requests to load or update its files.
+Camera scanning, photo reading, and OCR run locally. Recognition can miss characters or fields: the review form is editable, and blank suggestions leave existing values unchanged. Full-label readings retain the text and decoded codes in the capture history. The app does not open QR links or query manufacturer databases. Equipment type is inferred only for recognized laptop model families; it is a suggestion to review. Inventory and images are not uploaded by the app. The public site still requires ordinary web requests to load or update its files.
 
 CSV is for review and reporting. Excel or Sheets may remove leading zeroes or convert identifier values; import those columns as text. JSON preserves the saved identifiers and original capture readings for restoration. Restore merges records without overwriting: identical records count as skipped; changed records, duplicate identifiers, and batch-ID conflicts count as conflicts and remain unchanged. Assets are restored only when their batch exists locally or in the backup.
 

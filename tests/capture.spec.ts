@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import bwipjs from "bwip-js";
 
 type BarcodeFixture = { bcid: string; text: string; expectedFormat: string };
@@ -14,6 +14,46 @@ const fixtures: BarcodeFixture[] = [
 
 async function barcodePng({ bcid, text }: BarcodeFixture): Promise<Buffer> {
   return bwipjs.toBuffer({ bcid, text, scale: 5, height: 35, padding: 35 });
+}
+
+async function printedLabelPng(
+  page: Page,
+  lines: string[],
+  qrText: string,
+  dark: boolean,
+): Promise<Buffer> {
+  const qr = await bwipjs.toBuffer({
+    bcid: "qrcode",
+    text: qrText,
+    scale: 10,
+    padding: 12,
+  });
+  const base64 = await page.evaluate(
+    async ({ lines, qrUrl, dark }) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1600;
+      canvas.height = 1050;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = dark ? "#181818" : "#fff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = dark ? "#fff" : "#111";
+      lines.forEach((line, index) => {
+        // The model needs a distinct I/1; printed identifiers scan more
+        // reliably without the serifs that can split a final 9.
+        context.font = index <= 1 ? "bold 64px Georgia" : "bold 64px Arial";
+        context.fillText(line, 55, 120 + index * 130);
+      });
+      const qrImage = new Image();
+      qrImage.src = qrUrl;
+      await qrImage.decode();
+      context.fillStyle = "#fff";
+      context.fillRect(1120, 340, 430, 430);
+      context.drawImage(qrImage, 1130, 350, 410, 410);
+      return canvas.toDataURL("image/png").split(",")[1];
+    },
+    { lines, qrUrl: `data:image/png;base64,${qr.toString("base64")}`, dark },
+  );
+  return Buffer.from(base64, "base64");
 }
 
 function appUrl(baseURL: string | undefined): string {
@@ -52,13 +92,18 @@ test("photo picker reads the required barcode families without remote requests",
       [fixture.text],
       { timeout: 15_000 },
     );
+    await expect(dialog.getByLabel("Identifier to use")).toHaveValue("");
+    await dialog
+      .locator(".label-result")
+      .filter({ hasText: fixture.text })
+      .click();
     if (fixture.bcid === "upca") {
       // ZXing may report UPC-A as its equivalent EAN-13 representation,
       // with one additional leading zero; keep this visible for review.
       const value = await dialog.getByLabel("Identifier to use").inputValue();
       expect([fixture.text, `0${fixture.text}`]).toContain(value);
       expect(await dialog.locator(".label-result small").innerText()).toMatch(
-        /^(UPCA|EAN13)$/,
+        /^(UPCA|EAN13)\b/,
       );
     } else {
       await expect(dialog.locator(".label-result")).toContainText([
@@ -196,6 +241,118 @@ test("OCR uses local files with true offline coverage in Chromium", async ({
   expect(offOrigin).toEqual([]);
 });
 
+test("full-label photo applies an explicit serial and model without treating the order as a serial", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  await page.goto(appUrl(testInfo.project.use.baseURL));
+  const qrText = "pf7ab2c9pf8xy1234567";
+  const image = await printedLabelPng(
+    page,
+    [
+      "Model Name",
+      "Legion 5 15IAH7H",
+      "S/N PF7AB2C9",
+      "MTM 82RB0000US",
+      "Manufactured for Lenovo",
+      "MO PF8XY1234567",
+    ],
+    qrText,
+    true,
+  );
+  await page.getByRole("button", { name: "Label photo" }).click();
+  const dialog = page.getByRole("dialog", { name: "Capture serial number" });
+  await dialog.getByLabel("Choose label photo").setInputFiles({
+    name: "synthetic-label.png",
+    mimeType: "image/png",
+    buffer: image,
+  });
+  await dialog.getByRole("button", { name: "Read full label" }).click();
+  const review = dialog.getByRole("region", {
+    name: "Equipment details found",
+  });
+  await expect(review).toBeVisible({ timeout: 60_000 });
+  await expect(review.getByLabel("Manufacturer found")).toHaveValue("Lenovo");
+  await expect(review.getByLabel("Model found")).toHaveValue(
+    "Legion 5 15IAH7H",
+  );
+  await expect(
+    review.getByLabel("Equipment type (inferred from model)"),
+  ).toHaveValue("Laptop");
+  await expect(dialog.getByLabel("Serial number to use")).toHaveValue(
+    "PF7AB2C9",
+  );
+  await expect(dialog.getByLabel("Serial number to use")).not.toHaveValue(
+    /PF8XY1234567/i,
+  );
+  await expect(review).toContainText("MTM");
+  await expect(review).toContainText(/82RB[0o]{4}US/i);
+  await expect(review).toContainText("MO");
+  await expect(review).toContainText("PF8XY1234567");
+  await dialog.getByRole("button", { name: "Use label details" }).click();
+  await expect(page.getByLabel("Manufacturer", { exact: true })).toHaveValue(
+    "Lenovo",
+  );
+  await expect(page.getByLabel("Model / description")).toHaveValue(
+    "Legion 5 15IAH7H",
+  );
+  await expect(page.getByLabel("Equipment type")).toHaveValue("Laptop");
+  await expect(page.getByLabel("Serial number", { exact: true })).toHaveValue(
+    "PF7AB2C9",
+  );
+  await page.locator(".more-details > summary").click();
+  await page.locator(".capture-history summary").click();
+  const raw = JSON.parse(
+    await page.locator(".capture-history pre").last().innerText(),
+  );
+  expect(raw.text).toMatch(/S\/N\s+PF7AB2C9/i);
+  expect(raw.codes).toEqual(
+    expect.arrayContaining([expect.objectContaining({ value: qrText })]),
+  );
+});
+
+test("metadata-only label and a URL QR preserve the existing serial", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90_000);
+  await page.goto(appUrl(testInfo.project.use.baseURL));
+  await page
+    .getByLabel("Serial number", { exact: true })
+    .fill("EXISTING-SERIAL-01");
+  const url = "https://example.invalid/inventory/12345";
+  const image = await printedLabelPng(
+    page,
+    ["Model Name", "Legion 5 15IAH7H", "Manufactured for Lenovo"],
+    url,
+    false,
+  );
+  await page.getByRole("button", { name: "Label photo" }).click();
+  const dialog = page.getByRole("dialog", { name: "Capture serial number" });
+  await dialog.getByLabel("Choose label photo").setInputFiles({
+    name: "metadata-only-label.png",
+    mimeType: "image/png",
+    buffer: image,
+  });
+  await dialog.getByRole("button", { name: "Read full label" }).click();
+  const review = dialog.getByRole("region", {
+    name: "Equipment details found",
+  });
+  await expect(review).toBeVisible({ timeout: 60_000 });
+  await expect(review.getByLabel("Manufacturer found")).toHaveValue("Lenovo");
+  await expect(dialog.getByLabel("Serial number to use")).toHaveValue("");
+  await expect(dialog.locator(".label-result")).toContainText(url);
+  await dialog.getByRole("button", { name: "Use label details" }).click();
+  await expect(page.getByLabel("Serial number", { exact: true })).toHaveValue(
+    "EXISTING-SERIAL-01",
+  );
+  await expect(page.getByLabel("Manufacturer", { exact: true })).toHaveValue(
+    "Lenovo",
+  );
+  await expect(page.getByLabel("Model / description")).toHaveValue(
+    "Legion 5 15IAH7H",
+  );
+});
+
 for (const failure of [
   {
     name: "NotAllowedError",
@@ -211,9 +368,11 @@ for (const failure of [
     await page.evaluate((name) => {
       Object.defineProperty(navigator, "mediaDevices", {
         configurable: true,
-        value: {getUserMedia: async () => {
-          throw new DOMException("Simulated camera failure", name);
-        }},
+        value: {
+          getUserMedia: async () => {
+            throw new DOMException("Simulated camera failure", name);
+          },
+        },
       });
     }, failure.name);
     await page.getByRole("button", { name: "Scan with camera" }).click();
@@ -245,6 +404,9 @@ test("correcting a decoded serial retains the original label reading", async ({
   await dialog
     .getByRole("button", { name: "Read barcode", exact: true })
     .click();
+  await expect(dialog.locator(".label-result")).toContainText(fixtures[0].text);
+  await expect(dialog.getByLabel("Identifier to use")).toHaveValue("");
+  await dialog.locator(".label-result").click();
   await expect(dialog.getByLabel("Identifier to use")).toHaveValue(
     fixtures[0].text,
   );
@@ -255,6 +417,7 @@ test("correcting a decoded serial retains the original label reading", async ({
   await expect(page.getByLabel("Serial number", { exact: true })).toHaveValue(
     "CORRECTED-001",
   );
+  await page.locator(".more-details > summary").click();
   await page.locator(".capture-history summary").click();
   await expect(page.locator(".capture-history pre")).toHaveText(
     fixtures[0].text,
@@ -265,6 +428,7 @@ test("live camera frames are confirmed once and the camera stops for review", as
   page,
   browserName,
 }) => {
+  test.setTimeout(90_000);
   test.skip(
     browserName !== "chromium",
     "Synthetic canvas camera stream is exercised in Chromium.",
@@ -300,10 +464,17 @@ test("live camera frames are confirmed once and the camera stops for review", as
     .getByRole("button", { name: "Scan with camera", exact: true })
     .click();
   const dialog = page.getByRole("dialog", { name: "Capture serial number" });
-  await expect(dialog.getByLabel("Identifier to use")).toHaveValue(
-    fixtures[0].text,
-    { timeout: 15000 },
-  );
+  await expect(dialog.getByLabel("Choose label photo")).toBeAttached({
+    timeout: 20_000,
+  });
+  await expect(
+    dialog.getByRole("button", { name: "Read full label" }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("region", { name: "Equipment details found" }),
+  ).toBeVisible({ timeout: 60_000 });
+  await expect(dialog.locator(".label-result")).toContainText(fixtures[0].text);
+  await expect(dialog.getByLabel("Serial number to use")).toHaveValue("");
   expect(
     await page.evaluate(() =>
       (
@@ -311,8 +482,9 @@ test("live camera frames are confirmed once and the camera stops for review", as
       ).cameraTracks.every((track) => track.readyState === "ended"),
     ),
   ).toBeTruthy();
+  await dialog.getByLabel("Serial number to use").fill(fixtures[0].text);
   await dialog
-    .getByRole("button", { name: "Use identifier", exact: true })
+    .getByRole("button", { name: "Use label details", exact: true })
     .click();
   await expect(page.getByLabel("Serial number", { exact: true })).toHaveValue(
     fixtures[0].text,

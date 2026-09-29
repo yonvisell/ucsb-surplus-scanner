@@ -55,3 +55,21 @@ Public HTTPS validation completed at 2026-09-29 22:00:45 UTC in a fresh Chrome 1
 Verified release digest: `8bff2740c776a96256bcad4be2b6ad780229b99197cd9f360a1f602c7a80ccc8`. Test records existed only in a disposable browser profile.
 
 The first Linux CI run correctly reported no attached camera where a test had assumed permission denial. The test now injects `NotAllowedError` and `NotFoundError` separately and verifies photo fallback after each. Application behavior did not need to change.
+
+## Whole-label correction and compact interface — 29 September 2026
+
+A field report exposed a gap in the original synthetic tests: successfully decoding a QR code did not establish that its payload was a serial number, and the separate OCR token picker did not extract equipment details. The supplied equipment photo was reproduced locally; it and its actual identifiers are excluded from the repository.
+
+Capture now reads printed text and codes together, proposes explicitly labeled fields, and retains MO/MTM as separate evidence. A narrowly constrained Lenovo concatenation check requires manufacturer, a printed MO, a matching QR suffix, and independent printed agreement for the remaining serial. Conflicting serial candidates remain unresolved. Unclassified codes are never selected automatically. Grayscale normalization and automatic text layout replace the uniform-block OCR assumption. One OCR pass is used; no remote recognition service was added.
+
+Validation for this revision:
+
+- 48 unit tests passed, including 30 field-parser cases covering MO/MTM exclusion, conflicting serials, URL/untyped codes, multiline labels, damaged heading punctuation, and QR corroboration constraints.
+- 66 browser checks passed across desktop Chromium, Android-size Chromium and iPhone-size WebKit; the same three documented WebKit limitations remain skipped.
+- Synthetic full-label photographs exercise manufacturer, model, serial, inferred equipment type, order/product separation and preservation of original evidence in all three projects. A metadata-only label with a URL QR leaves an existing serial unchanged.
+- The privately supplied photo produced the correct serial, manufacturer, model and Laptop suggestion through the actual review/apply interface in Chromium and WebKit. Some non-serial OCR characters remain ambiguous; all suggestions still require review.
+- Camera streams stop before full-label analysis; a manual shutter also supports labels with no readable barcode. Photo/keyboard/manual fallbacks remain available. These are software checks, not physical phone camera qualification.
+- Updated narrow-screen and enlarged-text containment/accessibility checks passed. Mobile main form, capture review and five-step reference were visually inspected. Mobile text fields retain 16 px text to avoid focus zoom; surrounding text and controls use a smaller, consistent scale.
+- Private-photo processing generated no cross-origin requests or browser errors. Public tests use generated labels only.
+
+The interface removes the redundant save-location footer and generic form instructions, reduces padding/type variation, keeps capture evidence inside optional details, and replaces the long default reference with five steps tied to named controls. Existing inventory/backup schemas are unchanged.

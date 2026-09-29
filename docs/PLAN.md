@@ -21,3 +21,7 @@ Incorrect label selection, multiple labels, repeated video frames, vendor prefix
 
 ## Qualification boundary
 Desktop automation with emulated mobile viewports and WebKit provides software evidence, not physical iPhone/Android camera, torch, focus, thermal, home-screen lifecycle or sharing qualification. Record remaining device checks explicitly.
+
+## Field-report correction
+
+Read whole equipment labels rather than assuming the first decoded code is a serial. Combine local text and barcode evidence; distinguish serial, order and product identifiers; propose manufacturer/model and a conservative equipment-type suggestion; preserve blank/current fields. Verify the reported photo privately and publish only synthetic regressions. Simplify the form and quick reference around the capture/review/save/export operations. Keep the existing storage schema and verify the deployed update retains saved records.

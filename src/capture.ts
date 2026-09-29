@@ -275,8 +275,8 @@ export async function openCamera(
       audio: false,
       video: {
         facingMode: { ideal: "environment" },
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
       },
     });
   } catch (cause) {
@@ -431,6 +431,19 @@ export async function recognizeImage(
   context.fillStyle = "#fff";
   context.fillRect(0, 0, size.width, size.height);
   context.drawImage(original, 0, 0, size.width, size.height);
+  // Normalize color casts without clipping faint print or amplifying label wear.
+  // Keep both polarities: Tesseract handles light text on a dark background.
+  const pixels = context.getImageData(0, 0, size.width, size.height);
+  for (let index = 0; index < pixels.data.length; index += 4) {
+    const luminance =
+      0.299 * pixels.data[index] +
+      0.587 * pixels.data[index + 1] +
+      0.114 * pixels.data[index + 2];
+    pixels.data[index] = luminance;
+    pixels.data[index + 1] = luminance;
+    pixels.data[index + 2] = luminance;
+  }
+  context.putImageData(pixels, 0, 0);
   let worker: { terminate(): Promise<unknown> } | undefined;
   let termination: Promise<unknown> | undefined;
   let timedOut = false;
@@ -458,7 +471,7 @@ export async function recognizeImage(
     }, OCR_TIMEOUT_MS);
   });
   const work = async () => {
-    const { createWorker, OEM } = await import("tesseract.js");
+    const { createWorker, OEM, PSM } = await import("tesseract.js");
     if (signal?.aborted) throw aborted();
     const created = await createWorker("eng", OEM.LSTM_ONLY, {
       workerPath: vendorUrl("worker.min.js"),
@@ -481,6 +494,11 @@ export async function recognizeImage(
         ? aborted()
         : new Error("OCR timed out. Try a smaller crop.");
     }
+    // Labels mix text, codes, and logos. A single uniform text block merges QR
+    // modules into neighboring model/serial lines; automatic layout separates
+    // those regions while retaining multi-line field names and values.
+    await created.setParameters({ tessedit_pageseg_mode: PSM.AUTO });
+    if (signal?.aborted) throw aborted();
     const result = await created.recognize(image);
     if (signal?.aborted) throw aborted();
     return { text: result.data.text, confidence: result.data.confidence };

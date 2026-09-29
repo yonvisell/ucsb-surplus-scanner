@@ -564,7 +564,11 @@ export default function App() {
       setSaving(false);
     }
   }
-  function acceptCapture(value: Capture, identifier = value.value) {
+  function acceptCapture(
+    value: Capture,
+    identifier = value.value,
+    details?: Partial<Pick<Asset, "manufacturer" | "model" | "category">>,
+  ) {
     if (!capture || !draft) return;
     const cleaned = identifier.replace(
       /^[\s\u0000-\u001f\u007f]+|[\s\u0000-\u001f\u007f]+$/g,
@@ -572,13 +576,20 @@ export default function App() {
     );
     setDraft({
       ...draft,
-      [capture.target]: cleaned,
+      ...Object.fromEntries(
+        Object.entries(details || {}).filter(([, value]) => Boolean(value)),
+      ),
+      ...(cleaned ? { [capture.target]: cleaned } : {}),
       assetState: capture.target === "assetTag" ? "present" : draft.assetState,
       captures: [...draft.captures, value],
     });
     setCapture(null);
     setError("");
-    setNotice("Identifier captured. Check the label, then save the equipment.");
+    setNotice(
+      details
+        ? "Label details applied. Review the equipment, then save."
+        : "Identifier captured. Check the label, then save the equipment.",
+    );
   }
   const quantity = assets.reduce((sum, a) => sum + a.quantity, 0),
     reviewCount = assets.filter((a) => reviewReasons(a).length).length;
@@ -624,7 +635,6 @@ export default function App() {
             </div>
             <span>
               <strong>Surplus Scanner</strong>
-              <small>UCSB · DEPARTMENT IT</small>
             </span>
           </a>
           <div className="header-actions">
@@ -658,9 +668,8 @@ export default function App() {
       <main className="workspace">
         <div className="batch-bar">
           <div className="batch-title">
-            <span className="eyebrow">DEPARTMENTAL INVENTORY</span>
             <div className="batch-name">
-              <h1>{batch?.name || "Your surplus batch"}</h1>
+              <h1 className="sr-only">{batch?.name || "Surplus batch"}</h1>
               <button
                 className="text-button batch-details"
                 aria-label="Edit batch details"
@@ -674,11 +683,11 @@ export default function App() {
                 <span>Batch details</span>
               </button>
             </div>
-            <p>
-              {batch?.department || "Department not set"}
-              <span> / </span>
-              {batch?.location || "Location not set"}
-            </p>
+            {(batch?.department || batch?.location) && (
+              <p>
+                {[batch.department, batch.location].filter(Boolean).join(" / ")}
+              </p>
+            )}
           </div>
           <div className="batch-actions">
             <label className="batch-selector">
@@ -800,7 +809,7 @@ export default function App() {
             <div className="panel-title">
               <div>
                 <h2 id="capture-heading">
-                  {editing ? "Edit equipment" : "Capture equipment"}
+                  {editing ? "Edit equipment" : "Equipment"}
                 </h2>
               </div>
               <button
@@ -846,9 +855,6 @@ export default function App() {
                   </div>
                   <form onSubmit={submit} className="asset-form">
                     <fieldset disabled={saving} className="asset-fields">
-                      <p className="form-divider">
-                        Check the label, then save the item.
-                      </p>
                       <label>
                         Serial number
                         <div className="input-with-action">
@@ -1109,36 +1115,32 @@ export default function App() {
                               onChange={(e) => update("notes", e.target.value)}
                             />
                           </label>
+                          {draft.captures.length > 0 && (
+                            <details className="capture-history">
+                              <summary>
+                                Capture evidence ({draft.captures.length})
+                              </summary>
+                              {draft.captures.map((c, i) => (
+                                <div key={i}>
+                                  <small>
+                                    {
+                                      {
+                                        manual: "Manual entry",
+                                        keyboard: "Keyboard scanner",
+                                        barcode: "Camera",
+                                        "photo-barcode": "Barcode from photo",
+                                        ocr: "Photo",
+                                      }[c.source]
+                                    }{" "}
+                                    · {c.format}
+                                  </small>
+                                  <pre>{c.value}</pre>
+                                </div>
+                              ))}
+                            </details>
+                          )}
                         </div>
                       </details>
-                      {draft.captures.length > 0 && (
-                        <details className="capture-history">
-                          <summary>
-                            Original label readings ({draft.captures.length})
-                          </summary>
-                          {draft.captures.map((c, i) => (
-                            <div key={i}>
-                              <small>
-                                {
-                                  {
-                                    manual: "Manual entry",
-                                    keyboard: "Keyboard scanner",
-                                    barcode: "Camera barcode",
-                                    "photo-barcode": "Barcode from photo",
-                                    ocr: "Text from photo",
-                                  }[c.source]
-                                }{" "}
-                                · {c.format}
-                              </small>
-                              <pre>{c.value}</pre>
-                            </div>
-                          ))}
-                          <p className="hint">
-                            Original readings are retained in your export.
-                            Prefixes are never automatically removed.
-                          </p>
-                        </details>
-                      )}
                       {!draftRetained && (
                         <p className="notice warning">
                           Draft recovery is unavailable. Save this entry before
@@ -1180,11 +1182,6 @@ export default function App() {
                           {editing ? "Cancel edit" : "Clear entry"}
                         </button>
                       </div>
-                      <p className="save-hint">
-                        <HardDrive size={13} />
-                        Saved on this device. Export before clearing browser
-                        data.
-                      </p>
                     </fieldset>
                   </form>
                 </>
@@ -1382,7 +1379,6 @@ export default function App() {
                   {assets.length} saved{" "}
                   {assets.length === 1 ? "record" : "records"}
                 </strong>
-                <p>Export includes every saved record in this batch.</p>
               </div>
               <button
                 className="button primary"
@@ -1403,10 +1399,6 @@ export default function App() {
                 UCSB disposal guidance
               </button>
             </div>
-            <p className="inventory-note">
-              Review flags highlight missing details and handling follow-up.
-              They do not determine disposal approval.
-            </p>
           </section>
         </div>
       </main>
@@ -1444,6 +1436,7 @@ export default function App() {
             <CapturePanel
               mode={capture.mode}
               target={capture.target}
+              currentValues={draft || undefined}
               onCapture={acceptCapture}
               onClose={() => setCapture(null)}
             />
@@ -1811,131 +1804,118 @@ export default function App() {
         <Dialog title="Quick reference" onClose={() => setDialog(null)} wide>
           <ol className="quick-steps">
             <li>
-              <strong>Set the batch.</strong> Use Batch details beside the batch
-              name to set the department, room and staff defaults.
+              <strong>Batch:</strong> select a batch or choose New batch. Batch
+              details sets department, room and staff defaults.
             </li>
             <li>
-              <strong>Read a label.</strong> Choose Scan with camera, Label
-              photo, or USB / Bluetooth. You can also type in Serial number.
+              <strong>Camera:</strong> include the printed serial, manufacturer
+              and model. A steady barcode starts reading; otherwise tap Read
+              this label. <strong>Photo:</strong> Label photo → choose image →
+              Read full label.
             </li>
             <li>
-              <strong>Check and save.</strong> Verify the serial, asset tag and
-              data storage status. Save &amp; next adds one record and clears
-              the item fields.
+              <strong>Review:</strong> correct the proposed fields, then Use
+              label details. Blank fields keep existing values. S/N is the
+              serial; MO and MTM are not.
             </li>
             <li>
-              <strong>Export the batch.</strong> Export CSV downloads the saved
-              records. Download backup keeps all batches and original readings
-              for later restore.
+              <strong>Save:</strong> enter the UCSB asset number and Data
+              storage status, then Save &amp; next. Edit saved records with the
+              pencil button in Inventory.
+            </li>
+            <li>
+              <strong>Export:</strong> Export CSV saves the current batch.
+              Export &amp; tools → Download backup saves all batches; Restore
+              backup merges a backup into this browser. Unsaved entries are
+              excluded.
             </li>
           </ol>
           <details className="help-details">
-            <summary>Unreadable labels, offline use &amp; permissions</summary>
+            <summary>If capture is incomplete</summary>
             <p>
-              For a damaged barcode, use Label photo → Read text. Crop close to
-              the label. Check O/0 and I/1, then choose Use identifier.
+              Drag a rectangle over the label and select Crop selection; use
+              Rotate for sideways text. Read full label again. Check O/0 and I/1
+              against the photo. Read barcode or Read text lets you select a
+              value manually; unlabelled codes are not assigned automatically.
             </p>
             <p>
-              If camera access is denied, choose Photo or Scanner in the capture
-              window, or close it and type the identifier. Only the camera
-              requires camera permission.
+              If camera access fails, use Photo in the capture window or type
+              directly in the equipment form. USB / Bluetooth accepts a
+              connected scanner or pasted identifier; Enter applies it to the
+              selected field.
             </p>
             <p>
-              For several identical items without serials or asset tags, enter a
-              Model / description and Quantity.
-            </p>
-            <p>
-              Before going offline, open the app online and wait for Offline
-              ready. Download backup regularly; clearing browser data removes
-              the saved inventory. If site storage is blocked, use a normal
-              browser window with storage allowed before saving equipment.
-            </p>
-            <p>
-              Do not remove S, 1S or leading zeros unless the equipment label
-              confirms they are not part of the serial. Product barcodes often
-              identify a model, not an individual device.
+              For several identical items without serials or asset tags, enter
+              Model / description and Quantity. Keep individually identified
+              equipment in separate records.
             </p>
           </details>
           <details className="help-details">
-            <summary>UCSB disposal steps &amp; official forms</summary>
-            <p className="help-intro">
-              This app prepares an inventory. It does not submit campus forms or
-              approve disposal.
+            <summary>Saving, storage and offline use</summary>
+            <p>
+              Save &amp; next retains batch defaults for the next item. Clear
+              entry discards the unfinished entry; Undo clear restores the last
+              one during this visit. Wipe verified by IT requires the displayed
+              verification fields. Location, handling &amp; notes holds
+              condition and handling details.
             </p>
-            <ol className="guidance-list">
+            <p>
+              Records stay in this browser on this device. Download backup
+              before clearing browser data or changing devices. Photos are
+              processed locally and are not saved; recognized text and codes are
+              retained with the record.
+            </p>
+            <p>
+              Before disconnecting, open the app online and wait for Offline
+              ready. Export &amp; tools → Check offline files retries
+              preparation. Installing the app on the home screen is optional.
+            </p>
+          </details>
+          <details className="help-details">
+            <summary>UCSB forms and handoff</summary>
+            <p>
+              This app produces an inventory; submit required campus forms
+              separately.
+            </p>
+            <ul>
               <li>
-                <strong>Record the asset number.</strong>
-                <p>
-                  For equipment with an assigned UCSB Asset number, use the
-                  Equipment Inventory Modification Request (EIMR). Current form
-                  guidance specifies “Transfer” and “Surplus Sales.” Confirm
-                  inventory status with your equipment custodian when uncertain.
-                </p>
                 <a
                   href="https://bfs.ucsb.edu/equipment/forms"
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Equipment Management forms
+                  Equipment Management forms, including EIMR
                 </a>
               </li>
               <li>
-                <strong>Arrange the campus handoff.</strong>
-                <p>
-                  Follow EIMR approval and Surplus / Furniture Services
-                  instructions. Items larger than 2 × 2 × 2 feet or heavier than
-                  50 lb require a Furniture Services pickup. Coordinate items
-                  without an asset number with Surplus; do not infer disposal
-                  eligibility from purchase price.
-                </p>
                 <a
                   href="https://www.dls.ucsb.edu/surplus-sales/ucsb-departments"
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Surplus for UCSB departments
+                  Surplus Sales: departmental handoff instructions
                 </a>
               </li>
               <li>
-                <strong>Verify storage and flag special handling.</strong>
-                <p>
-                  Record IT verification of wiped storage, or flag it for
-                  sanitization or removal. Seek EH&S handling guidance for loose
-                  departmental batteries, damaged batteries, contamination or
-                  hazardous equipment.
-                </p>
                 <a
                   href="https://www.dls.ucsb.edu/furniture-services/ucsb-e-waste-recycling-disposal"
                   target="_blank"
                   rel="noreferrer"
                 >
-                  E-waste recycling & disposal
+                  E-waste disposal and pickup
                 </a>
+              </li>
+              <li>
                 <a
                   href="https://www.ehs.ucsb.edu/programs-services/hazardous-waste"
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Environmental Health & Safety
+                  EH&amp;S: batteries and hazardous waste
                 </a>
               </li>
-            </ol>
+            </ul>
           </details>
-          <div className="tools-section">
-            <h3>Data stays on your device</h3>
-            <p>
-              There is no account, analytics, cloud OCR or automatic upload.
-              Export files only to approved departmental locations. Avoid
-              passwords, security keys and unnecessary personal information in
-              notes.
-            </p>
-            <p className="hint">
-              The public site distributes app files; GitHub receives ordinary
-              web requests. Inventory and photos are processed locally. Guidance
-              links checked 29 September 2026; official UCSB instructions
-              govern.
-            </p>
-          </div>
         </Dialog>
       )}
     </>
