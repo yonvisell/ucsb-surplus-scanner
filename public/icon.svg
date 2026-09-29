@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Scan brackets around a box">
+  <rect x="0" y="0" width="512" height="512" rx="104" fill="#003660"/>
+  <g fill="none" stroke="#59d7d1" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M168 106h-30a32 32 0 0 0-32 32v30M344 106h30a32 32 0 0 1 32 32v30M106 344v30a32 32 0 0 0 32 32h30M406 344v30a32 32 0 0 1-32 32h-30"/>
+  </g>
+  <g fill="none" stroke="#fff" stroke-width="20" stroke-linejoin="round" stroke-linecap="round">
+    <path d="m256 177 84 45v73l-84 46-84-46v-73z"/>
+    <path d="m172 222 84 46 84-46M256 268v73"/>
+  </g>
+</svg>
