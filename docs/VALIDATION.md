@@ -60,7 +60,7 @@ The first Linux CI run correctly reported no attached camera where a test had as
 
 A field report exposed a gap in the original synthetic tests: successfully decoding a QR code did not establish that its payload was a serial number, and the separate OCR token picker did not extract equipment details. The supplied equipment photo was reproduced locally; it and its actual identifiers are excluded from the repository.
 
-Capture now reads printed text and codes together, proposes explicitly labeled fields, and retains MO/MTM as separate evidence. A narrowly constrained Lenovo concatenation check requires manufacturer, a printed MO, a matching QR suffix, and independent printed agreement for the remaining serial. Conflicting serial candidates remain unresolved. Unclassified codes are never selected automatically. Grayscale normalization and automatic text layout replace the uniform-block OCR assumption. One OCR pass is used; no remote recognition service was added.
+Capture now reads printed text and codes together, proposes explicitly labeled fields, and retains MO/MTM as separate evidence. A narrowly constrained Lenovo concatenation check requires manufacturer, a printed MO, a matching QR suffix, and independent printed agreement for the remaining serial. Conflicting serial candidates remain unresolved. Unclassified codes are never selected automatically. Grayscale normalization and automatic text layout replace the uniform-block OCR assumption. Recognition first uses grayscale. If no serial evidence was found, a bounded second pass uses the original colors; conflicting serials are never resolved by discarding a reading. No remote recognition service was added.
 
 Validation for this revision:
 
@@ -73,3 +73,7 @@ Validation for this revision:
 - Private-photo processing generated no cross-origin requests or browser errors. Public tests use generated labels only.
 
 The interface removes the redundant save-location footer and generic form instructions, reduces padding/type variation, keeps capture evidence inside optional details, and replaces the long default reference with five steps tied to named controls. Existing inventory/backup schemas are unchanged.
+
+Camera-resolution stress checks used the private photo as a synthetic video source at widths 1280 and 1920. The retry recovered the correct serial and manufacturer at both sizes. The model was correct at 1280; the 1920 reading still contained punctuation/I-versus-1 ambiguity and required manual correction. The full-size photo remained correct. This is a concrete limitation of local OCR, not evidence of physical-camera qualification. A separate synthetic camera label with no barcode passed the manual Read this label action.
+
+The first Linux run for this revision revealed OS-font-dependent synthetic OCR images and overflow at 200% text enlargement. Label regression images now use fixed synthetic pixels; status/navigation text can wrap within their cells. No user photograph or identifier is included in these fixtures.

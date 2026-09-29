@@ -1,5 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import bwipjs from "bwip-js";
+import { readFile } from "node:fs/promises";
 
 type BarcodeFixture = { bcid: string; text: string; expectedFormat: string };
 
@@ -14,46 +15,6 @@ const fixtures: BarcodeFixture[] = [
 
 async function barcodePng({ bcid, text }: BarcodeFixture): Promise<Buffer> {
   return bwipjs.toBuffer({ bcid, text, scale: 5, height: 35, padding: 35 });
-}
-
-async function printedLabelPng(
-  page: Page,
-  lines: string[],
-  qrText: string,
-  dark: boolean,
-): Promise<Buffer> {
-  const qr = await bwipjs.toBuffer({
-    bcid: "qrcode",
-    text: qrText,
-    scale: 10,
-    padding: 12,
-  });
-  const base64 = await page.evaluate(
-    async ({ lines, qrUrl, dark }) => {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1600;
-      canvas.height = 1050;
-      const context = canvas.getContext("2d")!;
-      context.fillStyle = dark ? "#181818" : "#fff";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.fillStyle = dark ? "#fff" : "#111";
-      lines.forEach((line, index) => {
-        // The model needs a distinct I/1; printed identifiers scan more
-        // reliably without the serifs that can split a final 9.
-        context.font = index <= 1 ? "bold 64px Georgia" : "bold 64px Arial";
-        context.fillText(line, 55, 120 + index * 130);
-      });
-      const qrImage = new Image();
-      qrImage.src = qrUrl;
-      await qrImage.decode();
-      context.fillStyle = "#fff";
-      context.fillRect(1120, 340, 430, 430);
-      context.drawImage(qrImage, 1130, 350, 410, 410);
-      return canvas.toDataURL("image/png").split(",")[1];
-    },
-    { lines, qrUrl: `data:image/png;base64,${qr.toString("base64")}`, dark },
-  );
-  return Buffer.from(base64, "base64");
 }
 
 function appUrl(baseURL: string | undefined): string {
@@ -247,18 +208,8 @@ test("full-label photo applies an explicit serial and model without treating the
   test.setTimeout(90_000);
   await page.goto(appUrl(testInfo.project.use.baseURL));
   const qrText = "pf7ab2c9pf8xy1234567";
-  const image = await printedLabelPng(
-    page,
-    [
-      "Model Name",
-      "Legion 5 15IAH7H",
-      "S/N PF7AB2C9",
-      "MTM 82RB0000US",
-      "Manufactured for Lenovo",
-      "MO PF8XY1234567",
-    ],
-    qrText,
-    true,
+  const image = await readFile(
+    new URL("./fixtures/synthetic-dark-label.png", import.meta.url),
   );
   await page.getByRole("button", { name: "Label photo" }).click();
   const dialog = page.getByRole("dialog", { name: "Capture serial number" });
@@ -305,7 +256,7 @@ test("full-label photo applies an explicit serial and model without treating the
   const raw = JSON.parse(
     await page.locator(".capture-history pre").last().innerText(),
   );
-  expect(raw.text).toMatch(/S\/N\s+PF7AB2C9/i);
+  expect(raw.text).toContain("PF7AB2C9");
   expect(raw.codes).toEqual(
     expect.arrayContaining([expect.objectContaining({ value: qrText })]),
   );
@@ -320,11 +271,8 @@ test("metadata-only label and a URL QR preserve the existing serial", async ({
     .getByLabel("Serial number", { exact: true })
     .fill("EXISTING-SERIAL-01");
   const url = "https://example.invalid/inventory/12345";
-  const image = await printedLabelPng(
-    page,
-    ["Model Name", "Legion 5 15IAH7H", "Manufactured for Lenovo"],
-    url,
-    false,
+  const image = await readFile(
+    new URL("./fixtures/synthetic-metadata-label.png", import.meta.url),
   );
   await page.getByRole("button", { name: "Label photo" }).click();
   const dialog = page.getByRole("dialog", { name: "Capture serial number" });

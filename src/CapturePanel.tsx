@@ -271,12 +271,14 @@ export default function CapturePanel({
         : "Reading label text and codes on this device…",
     );
     const c = frame || (crop ? cropCanvas(canvas!, crop) : canvas!);
+    const startedAt = Date.now();
     workAbort.current = new AbortController();
     const signal = workAbort.current.signal;
     const isCurrent = () => alive.current && token === generation.current;
     try {
       let codes = knownCodes;
       let text = "";
+      let alternateText = "";
       const warnings: string[] = [];
       if (kind !== "text") {
         try {
@@ -303,6 +305,48 @@ export default function CapturePanel({
           );
           text = result.text;
           if (!isCurrent()) return;
+          const initial = analyzeLabel(text, codes);
+          // Retry only absent serial evidence, never resolve conflicting serials
+          // by discarding one reading. Keep the original reading for inspection.
+          if (
+            kind === "label" &&
+            target === "serial" &&
+            !initial.identifiers.some((id) => id.kind === "serial") &&
+            Date.now() - startedAt < 25_000
+          ) {
+            setStatus("Serial not read. Checking the original image…");
+            const retry = new AbortController();
+            const cancelRetry = () => retry.abort();
+            signal.addEventListener("abort", cancelRetry, { once: true });
+            const deadline = window.setTimeout(
+              cancelRetry,
+              Math.max(1, 60_000 - (Date.now() - startedAt)),
+            );
+            try {
+              const second = await recognizeImage(
+                c,
+                (p) => {
+                  if (isCurrent()) setProgress(p);
+                },
+                retry.signal,
+                { grayscale: false },
+              );
+              if (!isCurrent()) return;
+              alternateText = second.text;
+              if (analyzeLabel(second.text, codes).fields.serial) {
+                alternateText = text;
+                text = second.text;
+              }
+            } catch (e) {
+              if (signal.aborted) throw e;
+              warnings.push(
+                "The second text read did not finish. Review the first reading or crop closer.",
+              );
+            } finally {
+              clearTimeout(deadline);
+              signal.removeEventListener("abort", cancelRetry);
+            }
+          }
         } catch (e) {
           if (signal.aborted) throw e;
           warnings.push(
@@ -322,7 +366,13 @@ export default function CapturePanel({
         setDetails(metadata);
         setIdentifiers(result.identifiers);
         setCandidate(serial || "");
-        setRawValue(JSON.stringify({ text, codes }));
+        setRawValue(
+          JSON.stringify({
+            text,
+            codes,
+            ...(alternateText ? { alternateText } : {}),
+          }),
+        );
         setFormat("equipment-label");
         setStatus(
           serial

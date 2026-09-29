@@ -2117,7 +2117,7 @@ summary {
   .mobile-nav > button {
     font-size: 0.8rem;
     gap: 4px;
-    white-space: nowrap;
+    white-space: normal;
   }
   .mobile-nav svg {
     width: 16px;
@@ -2180,4 +2180,27 @@ summary {
   .batch-actions {
     max-width: 620px;
   }
+}
+
+/* Text enlargement must not force fixed-width status or navigation cells. */
+.offline-pill span {
+  max-width: none;
+  overflow-wrap: anywhere;
+}
+.header-actions,
+.brand {
+  min-width: 0;
+  max-width: 100%;
+}
+.brand strong {
+  overflow-wrap: anywhere;
+}
+.mobile-nav {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.mobile-nav > button {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  flex-wrap: wrap;
 }

@@ -411,6 +411,7 @@ export async function recognizeImage(
   source: HTMLCanvasElement | Blob,
   onProgress: (fraction: number) => void,
   signal?: AbortSignal,
+  options: { grayscale?: boolean } = {},
 ): Promise<{ text: string; confidence: number }> {
   const aborted = () => new DOMException("OCR canceled.", "AbortError");
   if (signal?.aborted) throw aborted();
@@ -431,19 +432,21 @@ export async function recognizeImage(
   context.fillStyle = "#fff";
   context.fillRect(0, 0, size.width, size.height);
   context.drawImage(original, 0, 0, size.width, size.height);
-  // Normalize color casts without clipping faint print or amplifying label wear.
-  // Keep both polarities: Tesseract handles light text on a dark background.
-  const pixels = context.getImageData(0, 0, size.width, size.height);
-  for (let index = 0; index < pixels.data.length; index += 4) {
-    const luminance =
-      0.299 * pixels.data[index] +
-      0.587 * pixels.data[index + 1] +
-      0.114 * pixels.data[index + 2];
-    pixels.data[index] = luminance;
-    pixels.data[index + 1] = luminance;
-    pixels.data[index + 2] = luminance;
+  // Preserve the original color for an optional retry: grayscale helps some
+  // labels but can merge worn characters after camera resampling.
+  if (options.grayscale !== false) {
+    const pixels = context.getImageData(0, 0, size.width, size.height);
+    for (let index = 0; index < pixels.data.length; index += 4) {
+      const luminance =
+        0.299 * pixels.data[index] +
+        0.587 * pixels.data[index + 1] +
+        0.114 * pixels.data[index + 2];
+      pixels.data[index] = luminance;
+      pixels.data[index + 1] = luminance;
+      pixels.data[index + 2] = luminance;
+    }
+    context.putImageData(pixels, 0, 0);
   }
-  context.putImageData(pixels, 0, 0);
   let worker: { terminate(): Promise<unknown> } | undefined;
   let termination: Promise<unknown> | undefined;
   let timedOut = false;
