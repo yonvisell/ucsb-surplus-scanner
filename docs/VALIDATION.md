@@ -36,6 +36,22 @@ On a real iPhone/iPad and Android phone: confirm camera permission/recovery, aut
 
 ## Publication
 
-Target: https://yonvisell.github.io/ucsb-surplus-scanner/ from https://github.com/yonvisell/ucsb-surplus-scanner . Public-origin checks are recorded below after deployment completes. No inventory or photos are committed to the repository.
+Published app: https://yonvisell.github.io/ucsb-surplus-scanner/ . Source: https://github.com/yonvisell/ucsb-surplus-scanner . No inventory or photos are committed to the repository.
+
+GitHub Actions [run 36636610307](https://github.com/yonvisell/ucsb-surplus-scanner/actions/runs/36636610307) passed the build, 18 unit tests and 60 browser checks (3 documented WebKit skips), then deployed code from commit `94cefec0d9b651ac272fb66e20763421f96af511`.
+
+Public HTTPS validation completed at 2026-09-29 22:00:45 UTC in a fresh Chrome 154.0.8037.58 profile:
+
+| Check | Result |
+| --- | --- |
+| All 18 published asset hashes | Matched the release manifest |
+| Active service-worker control | Confirmed |
+| Code 128 photo capture | Read the generated test serial correctly |
+| Saved record after network-disabled reload | Retained |
+| CSV export and JSON backup while offline | Both retained the saved serial |
+| Local OCR while offline | Read `A12345` from a generated image |
+| Cross-origin processing requests / page errors | None observed |
+
+Verified release digest: `8bff2740c776a96256bcad4be2b6ad780229b99197cd9f360a1f602c7a80ccc8`. Test records existed only in a disposable browser profile.
 
 The first Linux CI run correctly reported no attached camera where a test had assumed permission denial. The test now injects `NotAllowedError` and `NotFoundError` separately and verifies photo fallback after each. Application behavior did not need to change.
