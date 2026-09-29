@@ -196,30 +196,40 @@ test("OCR uses local files with true offline coverage in Chromium", async ({
   expect(offOrigin).toEqual([]);
 });
 
-test("denied camera access leaves photo capture usable", async ({
-  page,
-  context,
-}, testInfo) => {
-  await context.grantPermissions([], {
-    origin: new URL(appUrl(testInfo.project.use.baseURL)).origin,
+for (const failure of [
+  {
+    name: "NotAllowedError",
+    message: "Camera permission was denied or blocked.",
+  },
+  { name: "NotFoundError", message: "No usable camera was found." },
+])
+  test(`camera ${failure.name} leaves photo capture usable`, async ({
+    page,
+    context,
+  }, testInfo) => {
+    await page.goto(appUrl(testInfo.project.use.baseURL));
+    await page.evaluate((name) => {
+      Object.defineProperty(navigator, "mediaDevices", {
+        configurable: true,
+        value: {getUserMedia: async () => {
+          throw new DOMException("Simulated camera failure", name);
+        }},
+      });
+    }, failure.name);
+    await page.getByRole("button", { name: "Scan with camera" }).click();
+    const dialog = page.getByRole("dialog", { name: "Capture serial number" });
+    await expect(dialog.getByRole("alert")).toContainText(failure.message);
+    await dialog.getByRole("button", { name: "Use a photo" }).click();
+    await dialog.getByLabel("Choose label photo").setInputFiles({
+      name: "fallback.png",
+      mimeType: "image/png",
+      buffer: await barcodePng(fixtures[0]),
+    });
+    await dialog.getByRole("button", { name: "Read barcode" }).click();
+    await expect(dialog.locator(".label-result")).toContainText([
+      fixtures[0].text,
+    ]);
   });
-  await page.goto(appUrl(testInfo.project.use.baseURL));
-  await page.getByRole("button", { name: "Scan with camera" }).click();
-  const dialog = page.getByRole("dialog", { name: "Capture serial number" });
-  await expect(dialog.getByRole("alert")).toContainText(
-    "Camera permission was denied or blocked.",
-  );
-  await dialog.getByRole("button", { name: "Use a photo" }).click();
-  await dialog.getByLabel("Choose label photo").setInputFiles({
-    name: "fallback.png",
-    mimeType: "image/png",
-    buffer: await barcodePng(fixtures[0]),
-  });
-  await dialog.getByRole("button", { name: "Read barcode" }).click();
-  await expect(dialog.locator(".label-result")).toContainText([
-    fixtures[0].text,
-  ]);
-});
 
 test("correcting a decoded serial retains the original label reading", async ({
   page,

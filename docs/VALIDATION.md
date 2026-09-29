@@ -7,7 +7,7 @@ Validation date: 29 September 2026. Local host: macOS, Node.js 20.20.2. Tests us
 - `npm test`: 18 focused tests passed. Coverage includes atomic duplicates, edit revisions, backup validation/merge conflicts, consistent export/restore size limits, original identifiers, CSV quoting/formula defense, and image geometry.
 - `npm run build`: TypeScript and production build passed. App and OCR/barcode runtimes are self-hosted; the precache is approximately 8.4 MB.
 - Browser projects: installed Google Chrome 154.0.8037.58 desktop; Chromium with a Pixel 7 viewport; Playwright WebKit 26.6 with an iPhone 13 viewport. These are desktop browser engines/emulation, not phones.
-- Final integrated suite: **57 browser checks passed, 3 WebKit cases skipped**, across the three projects (60 total cases). Skips are the synthetic camera stream, failed-install interception and true-offline cache-repair cases. The repository's CI runs the same suite before publishing.
+- Final integrated suite: **60 browser checks passed, 3 WebKit cases skipped**, across the three projects (63 total cases). Skips are the synthetic camera stream, failed-install interception and true-offline cache-repair cases. The repository's CI runs the same suite before publishing.
 - Barcode photo fixtures: Code 128, Code 39, QR, Data Matrix, EAN-13, UPC-A. UPC-A can be returned as EAN-13 with a leading zero; the UI warns that product codes generally do not identify an individual item.
 - Local OCR read a generated serial and passed candidate selection. Chromium also read it with the network disabled after offline preparation. Request checks found no cross-origin processing requests.
 - Save/edit/delete/undo, batch defaults, draft reload, quantity grouping, wipe verification fields, CSV download, JSON restore into another browser profile, duplicate rejection, stale concurrent edits, and post-commit refresh failure were exercised.
@@ -37,3 +37,5 @@ On a real iPhone/iPad and Android phone: confirm camera permission/recovery, aut
 ## Publication
 
 Target: https://yonvisell.github.io/ucsb-surplus-scanner/ from https://github.com/yonvisell/ucsb-surplus-scanner . Public-origin checks are recorded below after deployment completes. No inventory or photos are committed to the repository.
+
+The first Linux CI run correctly reported no attached camera where a test had assumed permission denial. The test now injects `NotAllowedError` and `NotFoundError` separately and verifies photo fallback after each. Application behavior did not need to change.
