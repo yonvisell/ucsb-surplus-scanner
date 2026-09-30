@@ -35,18 +35,36 @@ for (const trigger of ["automatic", "manual after resize"] as const) {
             const image = new Image();
             image.src = qrUrl;
             await image.decode();
-            ctx.fillStyle = "white";
-            ctx.fillRect(0, 0, 900, 1600);
-            // These source regions are outside the centered camera window.
-            ctx.fillStyle = "red";
-            ctx.fillRect(0, 0, 900, 350);
-            ctx.fillStyle = "blue";
-            ctx.fillRect(0, 1250, 900, 350);
-            fixture.revealCameraLabel = () => {
-              ctx.drawImage(image, 360, 710, 180, 180);
+            let labelVisible = false;
+            const drawFrame = () => {
+              ctx.fillStyle = "white";
+              ctx.fillRect(0, 0, 900, 1600);
+              // These source regions are outside the centered camera window.
+              ctx.fillStyle = "red";
+              ctx.fillRect(0, 0, 900, 350);
+              ctx.fillStyle = "blue";
+              ctx.fillRect(0, 1250, 900, 350);
+              if (labelVisible) ctx.drawImage(image, 360, 710, 180, 180);
             };
+            drawFrame();
             const stream = canvas.captureStream(10);
             fixture.cameraTracks = stream.getTracks();
+            const track =
+              stream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack;
+            const emitFrame = () => {
+              drawFrame();
+              track.requestFrame();
+            };
+            fixture.revealCameraLabel = () => {
+              labelVisible = true;
+              emitFrame();
+            };
+            // A real camera supplies continuing frames. Do the same here so a
+            // single canvas mutation cannot be lost before video presentation.
+            const timer = window.setInterval(() => {
+              if (track.readyState === "ended") window.clearInterval(timer);
+              else emitFrame();
+            }, 100);
             return stream;
           },
         });
