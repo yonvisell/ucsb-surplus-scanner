@@ -18,7 +18,7 @@ export interface LabelAnalysis {
 
 // Other printed field names delimit values; they are never serial evidence.
 const markerPattern =
-  /(^[\s"'‘’“”`•·|]*|[\s;,|])((?:serial\s*(?:number|no\.?|#)?|s\s*\/\s*n|s\/n|sn|service\s+tag)|(?:mtm|machine\s+type\s+model|p\s*\/\s*n|part\s+(?:number|no\.?)|product\s+(?:number|no\.?))|(?:m\s*\/\s*o|mo|manufacturing\s+order)|(?:asset\s*(?:tag|number|no\.?))|(?:model\s+name|model)|(?:manufactured\s+(?:for|by)|manufacturer)|(?:fcc\s+id|ic|input|output|rating|rated|voltage|current|power|mfg\s+date|manufacturing\s+date|date|made\s+in|country|regulatory\s+model|type|ean|upc|imei|mac(?:\s+address)?))\s*(?:\([^\n)]*\))?(?:\s*[:#=]\s*|\s+|$)/gi;
+  /(^[\s"'‘’“”`•·|\[]*|[\s;,|])((?:serial\s*(?:number|no\.?|#)?|s\s*\/\s*n|s\/n|sn|service\s+tag)|(?:mtm|machine\s+type\s+model|p\s*\/\s*n|part\s+(?:number|no\.?)|product\s+(?:number|no\.?))|(?:m\s*\/\s*o|mo|manufacturing\s+order)|(?:asset\s*(?:tag|number|no\.?))|(?:model\s+name|model(?!\s+name\b))|(?:manufactured\s+(?:for|by)|manufacturer)|(?:fcc\s+id|ic|input|output|rating|rated|voltage|current|power|mfg\s+date|manufacturing\s+date|factory\s+id|date|made\s+in|country|regulatory\s+model|type|ean|upc|imei|mac(?:\s+address)?))\s*(?:\([^\n)]*\))?[\])}]*(?:\s*[:#=]\s*|\s+|$)/gi;
 
 function classify(label: string): {
   kind: IdentifierKind | "model" | "manufacturer" | "metadata";
@@ -76,7 +76,7 @@ function unique(values: string[]): string | undefined {
 function laptopModel(model: string): boolean {
   // Family names alone can also occur in marketing text or desktop labels.
   return (
-    /\b(?:thinkpad\s+(?:[a-z]\d|x1)|legion\s+(?:pro\s+|slim\s+)?[579]\b|ideapad\s+(?:slim\s+|gaming\s+)?\d|latitude\s+\d{3,4}\b|(?:elitebook|probook)\s+\d|macbook\s+(?:air|pro)\b|surface\s+laptop\b)/i.test(
+    /\b(?:thinkpad\s+(?:[a-z]\d|x1)|legion\s+(?:(?:pro\s+|slim\s+)?[579]\b|(?:pro\s+|slim\s+)?\d\s+(?:1[3-9]|2[01])[a-z0-9]{3,8}\b)|ideapad\s+(?:slim\s+|gaming\s+)?\d|latitude\s+\d{3,4}\b|(?:elitebook|probook)\s+\d|macbook\s+(?:air|pro)\b|surface\s+laptop\b)/i.test(
       model,
     ) && !/\b(?:tower|desktop|aio|all.in.one)\b/i.test(model)
   );
@@ -87,14 +87,19 @@ export function analyzeLabel(
   text: string,
   codes: { value: string; format: string }[],
 ): LabelAnalysis {
+  const normalizedText = text.replace(/&#(?:x20|32);|&nbsp;/gi, " ");
   const identifiers: LabelIdentifier[] = [];
   const models: string[] = [];
   const manufacturers: string[] = [];
   const nonSerialTokens = new Set<string>();
+  const classifiedTokens = new Set<string>();
 
   function parse(source: string): number {
     const initialCount = identifiers.length;
-    const lines = source.replace(/\r\n?/g, "\n").split("\n");
+    const lines = source
+      .replace(/&#(?:x20|32);|&nbsp;/gi, " ")
+      .replace(/\r\n?/g, "\n")
+      .split("\n");
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
       const line = lines[lineIndex];
       if (/^\s*(?:[a-z][a-z0-9+.-]*:\/\/|www\.)/i.test(line)) continue;
@@ -116,7 +121,18 @@ export function analyzeLabel(
             value = trimValue(nextLine);
         }
         if (!value) continue;
-        if (field.kind !== "serial") {
+        // Keep electrical-line tokens available for manual assignment: OCR can
+        // merge a damaged serial line into INPUT. Named product, order, model,
+        // and regulatory fields must never reappear as unlabelled numbers.
+        const electricalField =
+          /^(?:input|output|rating|rated|voltage|current|power)$/i.test(
+            marker[2],
+          );
+        if (!electricalField) {
+          for (const token of value.match(/[a-z0-9][a-z0-9._/-]*/gi) ?? [])
+            classifiedTokens.add(token.toUpperCase());
+        }
+        if (field.kind !== "serial" && !electricalField) {
           for (const token of value.match(/[a-z0-9][a-z0-9._/-]*/gi) ?? [])
             nonSerialTokens.add(token.toUpperCase());
         }
@@ -124,10 +140,15 @@ export function analyzeLabel(
         // OCR may read an isolated edge or quote before descriptive text.
         // Do not apply this cleanup to identifier values.
         if (field.kind === "model" || field.kind === "manufacturer") {
-          value = value.replace(/^[\s"'‘’“”`•·|]+/u, "");
+          value = value.replace(/^[\s"'‘’“”`•·|\[({]+/u, "");
         }
         if (field.kind === "model") {
-          if (value.length <= 100 && !/:\/\//.test(value)) models.push(value);
+          if (
+            value.length <= 100 &&
+            !/:\/\//.test(value) &&
+            !/^(?:name|model|model\s+name)[\s:;()[\]{}]*$/i.test(value)
+          )
+            models.push(value);
         } else if (field.kind === "manufacturer") {
           const known = value.match(
             /^(Lenovo|Dell|HP|Hewlett[- ]Packard|Apple|Microsoft|Samsung|Acer|ASUS|Toshiba|LG|Cisco|Epson)\b/i,
@@ -157,7 +178,30 @@ export function analyzeLabel(
     return identifiers.length - initialCount;
   }
 
-  parse(text);
+  parse(normalizedText);
+  // These are choices for a user to assign, never automatic serial proposals.
+  // Require letters and digits to avoid offering ordinary words or ratings.
+  const unlabelledNumbers = new Set<string>();
+  for (const line of normalizedText.split(/\r?\n/)) {
+    if (/^\s*(?:[a-z][a-z0-9+.-]*:\/\/|www\.)/i.test(line)) continue;
+    for (const token of line.match(/[a-z0-9][a-z0-9._/-]*/gi) ?? []) {
+      if (
+        token.length >= 6 &&
+        isIdentifier(token) &&
+        /[a-z]/i.test(token) &&
+        /\d/.test(token) &&
+        !classifiedTokens.has(token.toUpperCase()) &&
+        !unlabelledNumbers.has(token.toUpperCase())
+      ) {
+        unlabelledNumbers.add(token.toUpperCase());
+        identifiers.push({
+          label: "Unlabelled number",
+          value: token,
+          kind: "unknown",
+        });
+      }
+    }
+  }
   for (const code of codes) {
     const value = code.value.trim();
     if (value && parse(value) === 0) {
@@ -177,17 +221,41 @@ export function analyzeLabel(
       .map((item) => item.value),
   );
   if (manufacturer === "Lenovo" && order) {
+    const possibleQrSerials = new Set<string>();
+    const withinOneCharacter = (left: string, right: string) => {
+      if (left.length !== right.length) return false;
+      let differences = 0;
+      for (let index = 0; index < left.length; index++) {
+        if (left[index] !== right[index] && ++differences > 1) return false;
+      }
+      return true;
+    };
     const printedTokens = new Set(
-      (text.match(/[a-z0-9][a-z0-9._/-]*/gi) ?? []).map((token) =>
+      (normalizedText.match(/[a-z0-9][a-z0-9._/-]*/gi) ?? []).map((token) =>
         token.toUpperCase(),
       ),
     );
     for (const code of codes) {
       if (!/^qr(?:code)?$/i.test(code.format.replace(/[ _-]/g, ""))) continue;
       const value = code.value.trim().toUpperCase();
-      if (!/^[A-Z0-9]+$/.test(value) || !value.endsWith(order.toUpperCase()))
-        continue;
+      if (!/^[A-Z0-9]+$/.test(value) || value.length <= order.length) continue;
       const prefix = value.slice(0, -order.length);
+      const suffix = value.slice(-order.length);
+      if (
+        prefix.length >= 6 &&
+        order.length >= 6 &&
+        isIdentifier(prefix) &&
+        !nonSerialTokens.has(prefix) &&
+        withinOneCharacter(suffix, order.toUpperCase()) &&
+        [...printedTokens].some(
+          (token) =>
+            /^[A-Z0-9]+$/.test(token) &&
+            !nonSerialTokens.has(token) &&
+            withinOneCharacter(token, prefix),
+        )
+      )
+        possibleQrSerials.add(prefix);
+      if (suffix !== order.toUpperCase()) continue;
       // Some Lenovo QR labels concatenate serial + MO. Splitting requires
       // independent printed agreement and must not reuse another named field.
       if (
@@ -200,6 +268,31 @@ export function analyzeLabel(
           value: prefix,
           kind: "serial",
         });
+      }
+    }
+    // Approximate agreement only adds an explicitly unassigned choice. OCR
+    // substitutions never become a silently corrected inventory serial.
+    if (possibleQrSerials.size === 1) {
+      const value = [...possibleQrSerials][0];
+      if (
+        !identifiers.some(
+          (item) =>
+            item.kind === "serial" && item.value.toUpperCase() === value,
+        )
+      ) {
+        const existing = identifiers.find(
+          (item) =>
+            item.kind === "unknown" && item.value.toUpperCase() === value,
+        );
+        if (existing) {
+          existing.label = "Possible serial (QR)";
+          existing.value = value;
+        } else
+          identifiers.push({
+            kind: "unknown",
+            label: "Possible serial (QR)",
+            value,
+          });
       }
     }
   }
@@ -216,6 +309,14 @@ export function analyzeLabel(
     fields,
     identifiers: identifiers.filter(
       (item, index) =>
+        !(
+          item.kind === "unknown" &&
+          identifiers.some(
+            (other) =>
+              other.kind !== "unknown" &&
+              other.value.toUpperCase() === item.value.toUpperCase(),
+          )
+        ) &&
         identifiers.findIndex(
           (other) =>
             other.kind === item.kind &&

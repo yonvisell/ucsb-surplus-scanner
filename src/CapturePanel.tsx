@@ -4,7 +4,6 @@ import {
   ImagePlus,
   RotateCw,
   ScanLine,
-  Type,
   RefreshCw,
   Zap,
   Square,
@@ -20,6 +19,7 @@ export type LabelDetails = Partial<{
 }>;
 import {
   decodeImage,
+  captureVideoFrame,
   openCamera,
   scanCamera,
   recognizeImage,
@@ -236,10 +236,7 @@ export default function CapturePanel({
   function takeFrame(found: DecodedLabel[] = []) {
     const v = video.current;
     if (!v?.videoWidth || !v.videoHeight) return;
-    const frame = document.createElement("canvas");
-    frame.width = v.videoWidth;
-    frame.height = v.videoHeight;
-    frame.getContext("2d")!.drawImage(v, 0, 0);
+    const frame = captureVideoFrame(v);
     stop();
     setCanvas(frame);
     setOriginal(frame);
@@ -248,7 +245,7 @@ export default function CapturePanel({
     void read("label", frame, found, true);
   }
   async function read(
-    kind: "label" | "barcode" | "text" = "label",
+    kind: "label" | "barcode" = "label",
     frame?: HTMLCanvasElement,
     knownCodes: DecodedLabel[] = [],
     fromCamera = false,
@@ -280,7 +277,7 @@ export default function CapturePanel({
       let text = "";
       let alternateText = "";
       const warnings: string[] = [];
-      if (kind !== "text") {
+      if (kind !== "barcode" || !codes.length) {
         try {
           codes = await decodeImage(
             c.getContext("2d")!.getImageData(0, 0, c.width, c.height),
@@ -377,17 +374,11 @@ export default function CapturePanel({
         setStatus(
           serial
             ? ""
-            : "No unambiguous serial label was read. Check the photo and enter the serial below, or apply only the details found.",
+            : "Serial label unreadable. Check the possible numbers below, or type the serial from the photo.",
         );
       } else {
         setRawValue(text || codes.map((c) => c.value).join("\n"));
-        setFormat(
-          kind === "text"
-            ? "text"
-            : codes.length === 1
-              ? codes[0].format
-              : "text",
-        );
+        setFormat(codes.length === 1 ? codes[0].format : "text");
         // Decoding establishes a value, not whether it identifies an individual device.
         setStatus(
           text || codes.length
@@ -651,14 +642,6 @@ export default function CapturePanel({
                 >
                   Read barcode
                 </button>
-                <button
-                  className="button"
-                  disabled={busy}
-                  onClick={() => void read("text")}
-                >
-                  <Type size={18} />
-                  Read text
-                </button>
               </div>
             </>
           )}
@@ -781,7 +764,9 @@ export default function CapturePanel({
               {identifiers
                 .filter(
                   (id) =>
-                    id.kind !== "unknown" &&
+                    (id.kind !== "unknown" ||
+                      id.label === "Unlabelled number" ||
+                      id.label === "Possible serial (QR)") &&
                     (id.kind !== "serial" ||
                       identifiers.filter((other) => other.kind === "serial")
                         .length > 1),
@@ -790,12 +775,14 @@ export default function CapturePanel({
                   <li key={i}>
                     <strong>{id.label}</strong>:{" "}
                     <span className="mono">{id.value}</span>
-                    {id.kind === "serial" && (
+                    {(id.kind === "serial" ||
+                      id.label === "Unlabelled number" ||
+                      id.label === "Possible serial (QR)") && (
                       <button
                         className="button subtle"
                         onClick={() => setCandidate(id.value)}
                       >
-                        Use this serial
+                        Use as serial
                       </button>
                     )}
                   </li>
@@ -885,7 +872,7 @@ export default function CapturePanel({
           onClick={accept}
         >
           <Check size={18} />
-          {details !== null ? "Use label details" : "Use identifier"}
+          {details !== null ? "Apply to form" : "Use identifier"}
         </button>
       </div>
     </Dialog>

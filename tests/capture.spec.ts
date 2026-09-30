@@ -187,15 +187,12 @@ test("OCR uses local files with true offline coverage in Chromium", async ({
     mimeType: "image/png",
     buffer: Buffer.from(base64, "base64"),
   });
-  await dialog.getByRole("button", { name: "Read text" }).click();
-  await expect(
-    dialog.getByRole("button", { name: "A12345", exact: true }),
-  ).toBeVisible({
-    timeout: 60_000,
-  });
-  await dialog.getByRole("button", { name: "A12345", exact: true }).click();
-  await expect(dialog.getByLabel("Identifier to use")).toHaveValue("A12345");
-  await dialog.getByRole("button", { name: "Use identifier" }).click();
+  await dialog.getByRole("button", { name: "Read full label" }).click();
+  await expect(dialog.getByLabel("Serial number to use")).toHaveValue(
+    "A12345",
+    { timeout: 60_000 },
+  );
+  await dialog.getByRole("button", { name: "Apply to form" }).click();
   await expect(
     page.getByRole("textbox", { name: "Serial number" }),
   ).toHaveValue("A12345");
@@ -240,7 +237,7 @@ test("full-label photo applies an explicit serial and model without treating the
   await expect(review).toContainText(/82RB[0o]{4}US/i);
   await expect(review).toContainText("MO");
   await expect(review).toContainText("PF8XY1234567");
-  await dialog.getByRole("button", { name: "Use label details" }).click();
+  await dialog.getByRole("button", { name: "Apply to form" }).click();
   await expect(page.getByLabel("Manufacturer", { exact: true })).toHaveValue(
     "Lenovo",
   );
@@ -289,7 +286,7 @@ test("metadata-only label and a URL QR preserve the existing serial", async ({
   await expect(review.getByLabel("Manufacturer found")).toHaveValue("Lenovo");
   await expect(dialog.getByLabel("Serial number to use")).toHaveValue("");
   await expect(dialog.locator(".label-result")).toContainText(url);
-  await dialog.getByRole("button", { name: "Use label details" }).click();
+  await dialog.getByRole("button", { name: "Apply to form" }).click();
   await expect(page.getByLabel("Serial number", { exact: true })).toHaveValue(
     "EXISTING-SERIAL-01",
   );
@@ -432,7 +429,7 @@ test("live camera frames are confirmed once and the camera stops for review", as
   ).toBeTruthy();
   await dialog.getByLabel("Serial number to use").fill(fixtures[0].text);
   await dialog
-    .getByRole("button", { name: "Use label details", exact: true })
+    .getByRole("button", { name: "Apply to form", exact: true })
     .click();
   await expect(page.getByLabel("Serial number", { exact: true })).toHaveValue(
     fixtures[0].text,
@@ -440,4 +437,41 @@ test("live camera frames are confirmed once and the camera stops for review", as
   await expect(
     page.getByRole("button", { name: "Save & next", exact: true }),
   ).toBeVisible();
+});
+
+test("damaged serial heading offers a QR candidate that must be selected before applying", async ({
+  page,
+}) => {
+  await page.goto("./");
+  await page.getByRole("button", { name: "Label photo", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog
+    .getByLabel("Choose label photo")
+    .setInputFiles("tests/fixtures/damaged-heading-label.png");
+  await dialog
+    .getByRole("button", { name: "Read full label", exact: true })
+    .click();
+  await expect(dialog.getByLabel("Manufacturer found")).toHaveValue("Lenovo", {
+    timeout: 60000,
+  });
+  await expect(dialog.getByLabel("Model found")).not.toHaveValue(/Name/);
+  await expect(
+    dialog.getByLabel("Equipment type (inferred from model)"),
+  ).toHaveValue("Laptop");
+  await expect(dialog.getByLabel("Serial number to use")).toHaveValue("");
+  const possible = dialog
+    .locator(".identified-values li")
+    .filter({ hasText: "Possible serial (QR)" });
+  await expect(possible).toContainText("AB7CD8E9");
+  await possible.getByRole("button", { name: "Use as serial" }).click();
+  await dialog.getByRole("button", { name: "Apply to form" }).click();
+  await expect(page.getByLabel("Serial number", { exact: true })).toHaveValue(
+    "AB7CD8E9",
+  );
+  await expect(page.getByLabel("Manufacturer", { exact: true })).toHaveValue(
+    "Lenovo",
+  );
+  await expect(
+    page.getByRole("combobox", { name: "Equipment type", exact: true }),
+  ).toHaveValue("Laptop");
 });

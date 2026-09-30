@@ -1809,14 +1809,15 @@ export default function App() {
             </li>
             <li>
               <strong>Camera:</strong> include the printed serial, manufacturer
-              and model. A steady barcode starts reading; otherwise tap Read
-              this label. <strong>Photo:</strong> Label photo → choose image →
-              Read full label.
+              and model inside the camera window. Only that window is captured.
+              A steady barcode starts reading; otherwise tap Read this label.{" "}
+              <strong>Photo:</strong> Label photo → choose image → Read full
+              label.
             </li>
             <li>
-              <strong>Review:</strong> correct the proposed fields, then Use
-              label details. Blank fields keep existing values. S/N is the
-              serial; MO and MTM are not.
+              <strong>Review:</strong> correct the proposed fields, then Apply
+              to form. Blank fields keep existing values. S/N is the serial; MO
+              and MTM are not.
             </li>
             <li>
               <strong>Save:</strong> enter the UCSB asset number and Data
@@ -1835,8 +1836,8 @@ export default function App() {
             <p>
               Drag a rectangle over the label and select Crop selection; use
               Rotate for sideways text. Read full label again. Check O/0 and I/1
-              against the photo. Read barcode or Read text lets you select a
-              value manually; unlabelled codes are not assigned automatically.
+              against the photo. Read barcode lets you select a code manually;
+              unlabelled codes are not assigned automatically.
             </p>
             <p>
               If camera access fails, use Photo in the capture window or type

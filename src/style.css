@@ -1,5 +1,5 @@
 :root {
-  font-size: 15px;
+  font-size: 14px;
   font-family:
     Inter,
     ui-sans-serif,
@@ -1136,14 +1136,18 @@ input[type="number"] {
   background: #0c2334;
   border-radius: 10px;
   overflow: hidden;
-  height: 300px;
+  height: 240px;
   display: grid;
   place-items: center;
 }
 .viewfinder video {
+  position: absolute;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
 }
 .viewfinder-message {
   position: absolute;
@@ -1160,10 +1164,7 @@ input[type="number"] {
 }
 .scan-guide {
   position: absolute;
-  left: 12%;
-  right: 12%;
-  top: 25%;
-  bottom: 25%;
+  inset: 0;
   border: 2px solid #6addcb;
   border-radius: 9px;
   pointer-events: none;
@@ -1733,7 +1734,7 @@ summary {
     font-size: 0.933rem;
   }
   .viewfinder {
-    height: 280px;
+    height: 220px;
   }
   .dialog-actions {
     position: sticky;
@@ -2203,4 +2204,489 @@ summary {
   white-space: normal;
   overflow-wrap: anywhere;
   flex-wrap: wrap;
+}
+
+/* One compact control scale across capture, inventory, and dialogs. */
+body {
+  line-height: 1.35;
+}
+h1,
+h2,
+.batch-name h1,
+.panel-title h2,
+.inventory-top h2,
+.dialog-heading h2 {
+  font-size: 1.143rem;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+h3,
+.empty-state h3,
+.brand strong {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+button,
+input,
+select,
+textarea,
+.button,
+.camera-button,
+.capture-alternatives button,
+.batch-actions > .button,
+.filter-button,
+.dialog-actions .button,
+.more-details > summary,
+.token-list button,
+.mode-tabs button,
+.offline-pill,
+.text-button,
+.utility-links button,
+.save-row .button,
+.export-bar .button {
+  min-height: 32px;
+  border-radius: 3px;
+  padding: 4px 7px;
+}
+button,
+.button,
+.camera-button,
+.capture-alternatives button,
+.batch-actions > .button,
+.filter-button,
+.mode-tabs button,
+.quick-reference,
+.batch-details,
+.offline-pill,
+.utility-links button,
+.desktop-tools {
+  font-size: 0.929rem;
+  line-height: 1.3;
+  gap: 4px;
+}
+input,
+select,
+textarea {
+  font-size: 1rem;
+}
+select {
+  padding-right: 22px;
+}
+label,
+.label-fields label {
+  gap: 2px;
+  font-size: 0.929rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.header-inner {
+  min-height: 40px;
+  padding: 3px 8px;
+  gap: 8px;
+}
+.brand,
+.header-actions {
+  gap: 5px;
+}
+.brand-mark {
+  height: 24px;
+  width: 24px;
+}
+.brand-mark svg {
+  height: 22px;
+  width: 22px;
+}
+.header-icon,
+.icon-button,
+.row-actions .icon-button {
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+  padding: 5px;
+}
+.workspace {
+  padding: 8px;
+}
+.batch-bar {
+  gap: 0;
+  margin-bottom: 4px;
+}
+.batch-actions {
+  gap: 5px;
+}
+.batch-title {
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.batch-name {
+  column-gap: 6px;
+}
+.batch-selector {
+  padding: 0 7px;
+  border-radius: 3px;
+}
+.batch-selector select,
+.search input {
+  min-height: 30px;
+  padding: 3px 0;
+}
+.work-grid {
+  gap: 16px;
+}
+.capture-card {
+  border: 0;
+  border-radius: 0;
+}
+.panel-title {
+  padding: 0;
+  margin-bottom: 4px;
+  border-bottom: 0;
+  flex-wrap: wrap;
+}
+.panel-title > div {
+  gap: 4px;
+}
+.capture-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0;
+}
+.capture-alternatives {
+  display: contents;
+}
+.capture-methods button {
+  flex: 1 0 auto;
+  width: auto;
+  max-width: 100%;
+  padding: 4px 6px;
+}
+.capture-methods svg {
+  display: none;
+}
+.asset-form {
+  padding: 6px 0 0;
+  gap: 6px;
+}
+.field-grid,
+.model-quantity,
+.label-fields {
+  gap: 6px;
+}
+.model-quantity {
+  grid-template-columns: minmax(0, 1fr) minmax(64px, 4.6rem);
+}
+.input-with-action input {
+  padding-right: 34px;
+}
+.input-with-action button {
+  inset: 0 0 0 auto;
+  width: 32px;
+  padding: 4px;
+}
+.more-details {
+  border: 0;
+  border-radius: 0;
+  margin-top: 0;
+  overflow: visible;
+}
+.more-details > summary {
+  background: none;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 4px 0;
+}
+.detail-fields,
+.verification-fields {
+  gap: 6px;
+  padding: 6px 0;
+}
+.verification-fields {
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
+}
+.save-row {
+  padding-top: 0;
+  margin: 0;
+  gap: 4px;
+}
+.checkbox-label {
+  gap: 6px;
+}
+.inventory-top,
+.inventory-toolbar,
+.stats {
+  margin-bottom: 6px;
+}
+.inventory-top {
+  margin-top: 0;
+}
+.stats {
+  border-radius: 3px;
+}
+.stats > div,
+.stats > button {
+  padding: 5px 8px;
+  gap: 6px;
+}
+.stats strong {
+  font-size: 1.143rem;
+}
+.search {
+  border-radius: 3px;
+  gap: 6px;
+  padding: 0 7px;
+}
+.list-header,
+.asset-row {
+  padding: 7px 8px;
+  gap: 6px;
+}
+.asset-description,
+.asset-identifiers {
+  gap: 4px;
+}
+.asset-description span:not(.equipment-icon),
+.asset-description small {
+  margin-top: 1px;
+}
+.equipment-icon {
+  background: none;
+  min-width: 26px;
+  height: 28px;
+}
+.review-badge,
+.checked-badge {
+  min-height: 28px;
+  border-radius: 3px;
+  padding: 3px 4px;
+}
+.empty-state,
+.empty-state.small {
+  padding: 14px 8px;
+  gap: 4px;
+}
+.empty-icon {
+  margin-bottom: 4px;
+  width: 32px;
+  height: 32px;
+}
+.empty-state .mobile-only {
+  margin-top: 8px;
+}
+.empty-steps {
+  margin-top: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.export-bar {
+  padding: 6px 0;
+  gap: 6px;
+}
+.utility-links {
+  gap: 4px 12px;
+  padding: 4px 0;
+}
+.utility-links button,
+.text-button {
+  padding-left: 0;
+  padding-right: 0;
+}
+.notice {
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  border-radius: 3px;
+  gap: 6px;
+}
+.dialog {
+  padding: 10px;
+  border-radius: 4px;
+  width: calc(100% - 16px);
+  max-height: calc(100dvh - 16px);
+}
+.dialog-heading {
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.dialog-heading > .icon-button {
+  margin: -4px -4px -4px 0;
+}
+.dialog-form {
+  gap: 6px;
+}
+.dialog > p {
+  margin-bottom: 6px;
+}
+.dialog-actions {
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 0 0;
+  margin-bottom: 0;
+}
+.mode-tabs {
+  margin: 0 -10px 8px;
+  padding: 0 10px;
+}
+.mode-tabs button {
+  border-radius: 0;
+  padding: 4px 8px;
+}
+.button-row {
+  gap: 4px;
+}
+.tools-section,
+.help-details {
+  padding-top: 8px;
+  margin-top: 8px;
+}
+.help-details {
+  padding-bottom: 4px;
+}
+.quick-steps {
+  padding-left: 20px;
+  margin-bottom: 8px;
+}
+.quick-steps li {
+  padding-left: 2px;
+  margin-bottom: 6px;
+}
+.help-details > p,
+.button-row + .hint {
+  margin-top: 6px;
+}
+.photo-picker {
+  min-height: 48px;
+  padding: 6px;
+  border-radius: 3px;
+}
+.photo-preview,
+.candidate-label,
+.label-results,
+.ocr-results,
+.label-review,
+.reading-evidence {
+  margin-top: 8px;
+}
+.label-result,
+.keyboard-help,
+.ocr-results pre {
+  padding: 6px;
+  border-radius: 3px;
+}
+.keyboard-help {
+  background: none;
+  border: 0;
+  padding: 0;
+  gap: 6px;
+}
+.ocr-results details {
+  margin: 6px 0;
+}
+.identified-values {
+  padding-left: 18px;
+}
+.identified-values li {
+  margin: 4px 0;
+}
+@media (max-width: 1100px) {
+  .asset-identifiers,
+  .review-cell {
+    padding-left: 30px;
+  }
+}
+@media (max-width: 760px), (pointer: coarse) {
+  input,
+  select,
+  textarea,
+  .batch-selector select,
+  .search input {
+    font-size: 16px;
+    min-height: 36px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  button,
+  .button,
+  .camera-button,
+  .capture-alternatives button,
+  .batch-actions > .button,
+  .filter-button,
+  .dialog-actions .button,
+  .more-details > summary,
+  .token-list button,
+  .mode-tabs button,
+  .offline-pill,
+  .text-button,
+  .utility-links button,
+  .save-row .button,
+  .export-bar .button {
+    min-height: 36px;
+  }
+  .icon-button,
+  .row-actions .icon-button {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+  }
+  .input-with-action button {
+    width: 36px;
+  }
+  .asset-row {
+    grid-template-columns: minmax(0, 1fr) 72px;
+  }
+}
+@media (max-width: 760px) {
+  .header-inner {
+    padding: 2px 8px;
+  }
+  .workspace {
+    padding: 6px 8px calc(44px + env(safe-area-inset-bottom));
+  }
+  .batch-title .text-button,
+  .panel-title .text-button {
+    min-height: 30px;
+  }
+  .mobile-nav {
+    padding: 0 4px env(safe-area-inset-bottom);
+  }
+  .mobile-nav > button {
+    display: block;
+    min-height: 36px;
+    padding: 4px 3px;
+    gap: 4px;
+    font-size: 0.929rem;
+  }
+  .mobile-nav svg {
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+  .mobile-nav span {
+    font-size: 0.857rem;
+  }
+  .dialog-actions {
+    bottom: -10px;
+    padding: 6px 0;
+    margin-bottom: -6px;
+  }
+  .dialog .button-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+}
+@media (max-width: 360px) {
+  .field-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  }
+  .batch-bar {
+    flex-wrap: nowrap;
+  }
+  .batch-actions {
+    justify-content: flex-start;
+  }
 }

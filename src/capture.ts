@@ -67,6 +67,59 @@ function canvas2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
   return context;
 }
 
+/** Source pixels visible in a centered object-fit: cover camera window. */
+export function visibleFrameRect(
+  sourceWidth: number,
+  sourceHeight: number,
+  viewWidth: number,
+  viewHeight: number,
+) {
+  if (
+    ![sourceWidth, sourceHeight, viewWidth, viewHeight].every(
+      (n) => Number.isFinite(n) && n > 0,
+    )
+  )
+    throw new Error("Camera view is not ready.");
+  const scale = Math.max(viewWidth / sourceWidth, viewHeight / sourceHeight);
+  const width = viewWidth / scale,
+    height = viewHeight / scale;
+  return {
+    x: (sourceWidth - width) / 2,
+    y: (sourceHeight - height) / 2,
+    width,
+    height,
+  };
+}
+
+export function captureVideoFrame(
+  video: HTMLVideoElement,
+  maximumSide = MAX_PHOTO_SIDE,
+  output = document.createElement("canvas"),
+): HTMLCanvasElement {
+  const view = video.getBoundingClientRect();
+  const crop = visibleFrameRect(
+    video.videoWidth,
+    video.videoHeight,
+    view.width,
+    view.height,
+  );
+  const size = scaledDimensions(crop.width, crop.height, maximumSide);
+  output.width = size.width;
+  output.height = size.height;
+  canvas2d(output).drawImage(
+    video,
+    crop.x,
+    crop.y,
+    crop.width,
+    crop.height,
+    0,
+    0,
+    size.width,
+    size.height,
+  );
+  return output;
+}
+
 export async function photoToCanvas(file: Blob): Promise<HTMLCanvasElement> {
   if (!file.size || file.size > MAX_PHOTO_BYTES)
     throw new Error("Image file must be between 1 byte and 30 MB.");
@@ -365,15 +418,8 @@ export function scanCamera(
       return;
     lastAttempt = time;
     try {
-      const size = scaledDimensions(
-        video.videoWidth,
-        video.videoHeight,
-        MAX_CAMERA_SIDE,
-      );
-      if (canvas.width !== size.width) canvas.width = size.width;
-      if (canvas.height !== size.height) canvas.height = size.height;
-      context.drawImage(video, 0, 0, size.width, size.height);
-      const image = context.getImageData(0, 0, size.width, size.height);
+      captureVideoFrame(video, MAX_CAMERA_SIDE, canvas);
+      const image = context.getImageData(0, 0, canvas.width, canvas.height);
       pending = true;
       void readImage(image, 1, () => stopped)
         .then((labels) => {

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { cropPixels, photoToCanvas, scaledDimensions } from "./capture";
+import {
+  cropPixels,
+  photoToCanvas,
+  scaledDimensions,
+  visibleFrameRect,
+} from "./capture";
 
 describe("bounded image geometry", () => {
   it("preserves aspect ratio and never upscales", () => {
@@ -43,5 +48,33 @@ describe("bounded image geometry", () => {
     const large = new Blob();
     Object.defineProperty(large, "size", { value: 30 * 1024 * 1024 + 1 });
     await expect(photoToCanvas(large)).rejects.toThrow("30 MB");
+  });
+});
+
+describe("visible camera frame", () => {
+  it("crops a portrait stream to exactly the landscape window", () => {
+    expect(visibleFrameRect(1080, 1920, 360, 240)).toEqual({
+      x: 0,
+      y: 600,
+      width: 1080,
+      height: 720,
+    });
+  });
+  it("crops the sides of wide streams and responds to window rotation", () => {
+    expect(visibleFrameRect(1920, 1080, 240, 360)).toEqual({
+      x: 600,
+      y: 0,
+      width: 720,
+      height: 1080,
+    });
+    expect(visibleFrameRect(1920, 1080, 640, 360)).toEqual({
+      x: 0,
+      y: 0,
+      width: 1920,
+      height: 1080,
+    });
+  });
+  it("rejects a hidden or uninitialized video", () => {
+    expect(() => visibleFrameRect(1080, 1920, 0, 240)).toThrow("not ready");
   });
 });
